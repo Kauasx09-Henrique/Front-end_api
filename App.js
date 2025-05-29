@@ -1,41 +1,94 @@
-// Exemplo em um componente de tela (ProfileScreen.js)
-import React, { useState, useEffect } from 'react';
-import { View, Text, ActivityIndicator } from 'react-native';
-import axios from 'axios'; // ou seu método preferido
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import axios from 'axios';
 
-function ProfileScreen() {
-  const [userData, setUserData] = useState(null);
+
+export default function App() {
+  const [dados, setDados] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        setLoading(true);
-        const response = await axios.get('https://sua-api-nest.com/users/1');
-        setUserData(response.data);
-        setError(null);
-      } catch (err) {
-        setError(err.message);
-        setUserData(null);
-      } finally {
-        setLoading(false);
-      }
-    };
+    axios.get('http://localhost:3000/users/dados')
+      .then(response => setDados(response.data))
+      .catch(error => console.error(error))
+      .finally(() => setLoading(false));
+  }, []);
 
-    fetchUserData();
-  }, []); // Array de dependências vazio para executar apenas na montagem
-
-  if (loading) return <ActivityIndicator size="large" />;
-  if (error) return <Text>Erro: {error}</Text>;
-  if (!userData) return <Text>Nenhum dado encontrado.</Text>;
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#555" />
+        <Text style={styles.loadingText}>Carregando...</Text>
+      </View>
+    );
+  }
 
   return (
-    <View>
-      <Text>Nome: {userData.name}</Text>
-      {/* ... outros dados do usuário */}
-    </View>
+    <ScrollView contentContainerStyle={styles.container}>
+      <Text style={styles.title}>Lista de Usuários</Text>
+      {dados.length === 0 ? (
+        <Text style={styles.noDataText}>Nenhum usuário encontrado.</Text>
+      ) : (
+        dados.map(user => (
+          <View key={user.id} style={styles.card}>
+            <Text style={styles.userName}>{user.user_nome}</Text>
+            <Text><Text style={styles.label}>Email:</Text> {user.user_email}</Text>
+            <Text><Text style={styles.label}>Nascimento:</Text> {user.user_data_nascimento}</Text>
+            <Text><Text style={styles.label}>Gênero:</Text> {user.user_genero}</Text>
+            <Text><Text style={styles.label}>Telefone:</Text> {user.user_telefone}</Text>
+            <Text><Text style={styles.label}>CPF:</Text> {user.user_cpf}</Text>
+          </View>
+        ))
+      )}
+    </ScrollView>
   );
 }
 
-export default ProfileScreen;
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+    backgroundColor: '#f9f9f9',
+  },
+  title: {
+    fontSize: 24,
+    textAlign: 'center',
+    color: '#333',
+    marginBottom: 20,
+    fontWeight: 'bold',
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 15,
+    marginBottom: 15,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 5,
+  },
+  label: {
+    fontWeight: 'bold',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#eaeaea',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 18,
+    color: '#555',
+  },
+  noDataText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#999',
+  },
+});
