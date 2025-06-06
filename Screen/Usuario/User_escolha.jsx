@@ -3,12 +3,13 @@ import { View, StyleSheet, Text } from 'react-native';
 import { Card, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
-const AcessoScreen = ({ navigation }) => {
+const EscolhaLoginScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Bem-vindo!</Text>
       <Text style={styles.subtitle}>Como deseja prosseguir?</Text>
 
+      {/* Card de Login */}
       <Card style={styles.card}>
         <Card.Content style={styles.cardContent}>
           <MaterialCommunityIcons name="login" size={50} color="#007bff" />
@@ -23,6 +24,7 @@ const AcessoScreen = ({ navigation }) => {
         </Card.Content>
       </Card>
 
+      {/* Card de Cadastro */}
       <Card style={styles.card}>
         <Card.Content style={styles.cardContent}>
           <MaterialCommunityIcons name="account-plus" size={50} color="#28a745" />
@@ -30,7 +32,7 @@ const AcessoScreen = ({ navigation }) => {
           <Button
             mode="contained"
             style={[styles.button, { backgroundColor: '#28a745' }]}
-            onPress={() => navigation.navigate('CadastroScreen')}
+            onPress={() => navigation.navigate('CadastroUsuarioScreen')}
           >
             Cadastrar-se
           </Button>
@@ -40,7 +42,7 @@ const AcessoScreen = ({ navigation }) => {
   );
 };
 
-export default AcessoScreen;
+export default EscolhaLoginScreen;
 
 const styles = StyleSheet.create({
   container: {

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { TextInput, Button, Card, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
@@ -9,7 +11,13 @@ const LoginScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [snackbarVisible, setSnackbarVisible] = useState(false);
 
-  const API_URL = 'http://localhost:3000/users/dados';  // Ajuste conforme sua API
+  const API_URL = 'http://localhost:3000/users/login';
+
+
+  const inserirDados = async (user) => {
+    await AsyncStorage.setItem('userId', user.id);
+    await AsyncStorage.setItem('userNome', user.user_email);
+  }
 
   const handleLogin = async () => {
     if (!email || !senha) {
@@ -27,16 +35,16 @@ const LoginScreen = ({ navigation }) => {
       });
 
       const responseData = await response.json();
-
+      // console.log(responseData.user)
       if (response.ok) {
-        // Mostrar snackbar de sucesso
+
         setSnackbarVisible(true);
 
         setTimeout(() => {
           setSnackbarVisible(false);
-          navigation.replace('Home'); // Navega após mostrar o snackbar
+          navigation.replace('Home');
         }, 1500);
-
+        inserirDados(responseData.user)
       } else {
         alert('Erro', responseData.message || 'Email ou senha inválidos.');
       }
@@ -91,10 +99,11 @@ const LoginScreen = ({ navigation }) => {
 
           <Button
             mode="text"
-            onPress={() => navigation.navigate('CadastroScreen')}
+            onPress={() => navigation.navigate('CadastroUsuarioScreen')}
             style={styles.registerLink}
           >
             Não tem conta? Cadastre-se
+
           </Button>
         </Card.Content>
       </Card>
