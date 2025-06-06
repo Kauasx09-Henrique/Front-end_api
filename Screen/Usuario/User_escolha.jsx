@@ -2,8 +2,19 @@ import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { Card, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Toast from 'react-native-toast-message';
 
 const EscolhaLoginScreen = ({ navigation }) => {
+  const handleLoginPress = () => {
+    navigation.navigate('Login');
+    Toast.show({
+      type: 'success',
+      text1: 'Sucesso',
+      text2: 'Parabéns! Login selecionado com sucesso.',
+      position: 'bottom',
+    });
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Bem-vindo!</Text>
@@ -16,10 +27,10 @@ const EscolhaLoginScreen = ({ navigation }) => {
           <Text style={styles.cardTitle}>Já tem uma conta?</Text>
           <Button
             mode="contained"
-            style={styles.button}
-            onPress={() => navigation.navigate('Login')}
+            style={[styles.button, { backgroundColor: '#007bff' }]}
+            onPress={handleLoginPress}
           >
-            Fazer Login
+            Entrar
           </Button>
         </Card.Content>
       </Card>
@@ -38,6 +49,9 @@ const EscolhaLoginScreen = ({ navigation }) => {
           </Button>
         </Card.Content>
       </Card>
+
+      {/* Componente do Toast */}
+      <Toast />
     </View>
   );
 };

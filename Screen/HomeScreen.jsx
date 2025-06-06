@@ -9,7 +9,6 @@ import {
   ScrollView,
   TouchableOpacity,
 } from 'react-native';
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Provider as PaperProvider,
@@ -18,14 +17,100 @@ import {
   Button,
   Card,
   Title,
-  Paragraph,
+  Avatar,
 } from 'react-native-paper';
-
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 
-// Substitua pelo IP real da sua máquina (exemplo abaixo)
-const API_BASE_URL = 'http://192.168.x.x:3000';
+const API_BASE_URL = 'http://localhost:3000/';
+
+const palette = {
+  primary: '#E53935', // vermelho tomate
+  secondary: '#FFF3E0', // bege amarelado
+  support: '#43A047', // verde ervas
+  text: '#333333', // cinza grafite
+  light: '#f1f1f1',
+  error: '#dc3545',
+};
+
+const UserGreeting = ({ isLoading, isLoggedIn, userName, onLoginPress }) => {
+  if (isLoading) {
+    return <ActivityIndicator style={styles.userGreeting} size="small" color={palette.primary} />;
+  }
+  return (
+    <View style={styles.userGreeting}>
+      {isLoggedIn ? (
+        <>
+          <MaterialCommunityIcons name="account-circle" size={36} color={palette.primary} />
+          <Text style={styles.greetingText}>Olá, {userName}!</Text>
+        </>
+      ) : (
+        <TouchableOpacity onPress={onLoginPress}>
+          <Text style={styles.loginPrompt}>
+            Faça login ou cadastre-se para agendar consultas.
+          </Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+};
+
+const ClinicCard = ({ clinic, onSeeMore, onBookAppointment }) => {
+  const logoUri = clinic.logo_clinica
+    ? `${API_BASE_URL}${clinic.logo_clinica}`
+    : 'https://via.placeholder.com/300/CCCCCC/FFFFFF?text=Logo';
+
+  return (
+    <Card style={styles.card}>
+      <Card.Cover source={{ uri: logoUri }} />
+      <Card.Content>
+        <Title>{clinic.nome_clinica || 'Nome não disponível'}</Title>
+        <Text style={styles.textItem}>
+          Especialidade: {clinic.especialidade_consulta || 'Não informada'}
+        </Text>
+        <Text style={styles.textItem}>
+          Telefone: {clinic.telefone_clinica || 'Não informado'}
+        </Text>
+      </Card.Content>
+      <Card.Actions>
+        <Button onPress={() => onSeeMore(clinic)}>Ver mais</Button>
+        <Button onPress={() => onBookAppointment(clinic)}>Marcar consulta</Button>
+      </Card.Actions>
+    </Card>
+  );
+};
+
+const ClinicDetailModal = ({ clinic, visible, onClose }) => {
+  if (!clinic) return null;
+
+  return (
+    <Portal>
+      <Modal visible={visible} onDismiss={onClose} contentContainerStyle={styles.modalContainer}>
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <Title style={styles.modalTitle}>{clinic.nome_clinica}</Title>
+          <Button mode="contained" style={styles.closeButton} onPress={onClose}>
+            Fechar
+          </Button>
+        </ScrollView>
+      </Modal>
+    </Portal>
+  );
+};
+
+const ErrorDisplay = ({ error, onRetry }) => (
+  <View style={styles.statusContainer}>
+    <MaterialCommunityIcons name="alert-circle-outline" size={60} color={palette.error} />
+    <Text style={styles.errorText}>{error}</Text>
+    <Button mode="outlined" onPress={onRetry}>Tentar novamente</Button>
+  </View>
+);
+
+const EmptyList = () => (
+  <View style={styles.statusContainer}>
+    <MaterialCommunityIcons name="store-remove-outline" size={60} color={palette.text} />
+    <Text style={styles.emptyText}>Nenhuma clínica encontrada.</Text>
+  </View>
+);
 
 const HomeScreen = ({ navigation }) => {
   const [clinicas, setClinicas] = useState([]);
@@ -36,20 +121,16 @@ const HomeScreen = ({ navigation }) => {
   const [userNome, setUserNome] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
 
-  // Busca clínicas da API
   const fetchClinicas = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/clinica`);
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erro na resposta da rede: ${response.status} - ${errorText}`);
-      }
+      if (!response.ok) throw new Error('Falha ao carregar os dados.');
       const data = await response.json();
       setClinicas(data);
     } catch (e) {
-      setError('Não foi possível carregar as clínicas. Verifique sua conexão e o IP da API.');
+      setError('Não foi possível carregar as clínicas.');
     } finally {
       setLoading(false);
     }
@@ -57,108 +138,50 @@ const HomeScreen = ({ navigation }) => {
 
   useFocusEffect(
     useCallback(() => {
-      const loadUserAndClinicas = async () => {
+      const loadData = async () => {
         setLoadingUser(true);
-        setError(null);
         try {
-          const nomeResult = await AsyncStorage.getItem('userNome');
-          setUserNome(nomeResult);
+          const nome = await AsyncStorage.getItem('userNome');
+          setUserNome(nome);
           await fetchClinicas();
         } catch {
-          setError('Erro ao carregar dados do usuário e clínicas.');
-          setLoading(false);
+          setError('Erro ao carregar dados do usuário.');
         } finally {
           setLoadingUser(false);
         }
       };
-
-      loadUserAndClinicas();
+      loadData();
     }, [])
   );
 
-  const usuarioEstaLogado = !!userNome;
-
-  const handleVerMais = (clinica) => {
-    setSelectedClinic(clinica);
-    setModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setModalVisible(false);
-    setSelectedClinic(null);
-  };
-
   const handleMarcarConsulta = (clinica) => {
-    const clinicToPass = clinica || selectedClinic;
-    if (!clinicToPass) return;
-
-    if (usuarioEstaLogado) {
-      navigation.navigate('ConsultaScreen', { clinicaId: clinicToPass.id });
+    const isLoggedIn = !!userNome;
+    if (isLoggedIn) {
+      navigation.navigate('ConsultaScreen', { clinicaId: clinica.id });
     } else {
       navigation.navigate('EscolhaLoginScreen', {
         redirectTo: 'ConsultaScreen',
-        clinicaId: clinicToPass.id,
+        clinicaId: clinica.id,
       });
     }
   };
 
-  const renderClinicItem = ({ item }) => {
-    const logoUri = item.logo_clinica
-      ? `${API_BASE_URL}${item.logo_clinica}`
-      : 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=Logo';
-
-    return (
-      <Card style={styles.card}>
-        <Card.Cover source={{ uri: logoUri }} />
-        <Card.Content>
-          <Title>{item.nome_clinica || 'Nome não disponível'}</Title>
-          <Paragraph>
-            Especialidade: {item.especialidade_consulta || 'Não informada'}
-          </Paragraph>
-          <Paragraph>
-            Telefone: {item.telefone_clinica || 'Não informado'}
-          </Paragraph>
-        </Card.Content>
-        <Card.Actions>
-          <Button onPress={() => handleVerMais(item)}>Ver mais</Button>
-          <Button onPress={() => handleMarcarConsulta(item)}>Marcar consulta</Button>
-        </Card.Actions>
-      </Card>
-    );
-  };
-
-  const renderEmptyComponent = () => (
-    <View style={styles.emptyContainer}>
-      <MaterialCommunityIcons name="store-remove-outline" size={60} color="#888" />
-      <Text style={styles.emptyText}>Nenhuma clínica encontrada.</Text>
-      <Text style={styles.emptySubText}>Tente cadastrar uma nova clínica.</Text>
-    </View>
-  );
-
   return (
     <PaperProvider>
       <View style={styles.container}>
-        {loadingUser ? (
-          <ActivityIndicator size="small" color="#007bff" />
-        ) : (
-          <View style={styles.userGreeting}>
-            {usuarioEstaLogado ? (
-              <>
-                <MaterialCommunityIcons name="account-circle" size={36} color="#007bff" />
-                <Text style={styles.greetingText}>Olá, {userNome}!</Text>
-              </>
-            ) : (
-              <TouchableOpacity onPress={() => navigation.navigate('EscolhaLoginScreen')}>
-                <Text style={styles.loginPrompt}>
-                  Faça login ou cadastre-se para aproveitar mais recursos.
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        <Image source={{ uri: 'https://i.imgur.com/m6y8i2L.png' }} style={styles.logo} />
+        <UserGreeting
+          isLoading={loadingUser}
+          isLoggedIn={!!userNome}
+          userName={userNome}
+          onLoginPress={() => navigation.navigate('EscolhaLoginScreen')}
+        />
 
         <View style={styles.header}>
-          <Text style={styles.title}>Nossas Clínicas 🏥</Text>
+          <View style={styles.titleWrapper}>
+            <Avatar.Image size={30} source={require('../assets/Logo_app.png')} />
+            <Title style={styles.title}>Nossas Clínicas</Title>
+          </View>
           <Button
             icon="plus-circle"
             mode="contained"
@@ -170,202 +193,147 @@ const HomeScreen = ({ navigation }) => {
         </View>
 
         {loading ? (
-          <ActivityIndicator style={{ marginTop: 50 }} size="large" color="#007bff" />
+          <ActivityIndicator style={{ marginTop: 50 }} size="large" color={palette.primary} />
         ) : error ? (
-          <View style={styles.errorContainer}>
-            <MaterialCommunityIcons name="alert-circle-outline" size={60} color="#c0392b" />
-            <Text style={styles.errorText}>{error}</Text>
-            <Button mode="outlined" onPress={fetchClinicas}>
-              Tentar novamente
-            </Button>
-          </View>
+          <ErrorDisplay error={error} onRetry={fetchClinicas} />
         ) : (
           <FlatList
             data={clinicas}
-            renderItem={renderClinicItem}
-            keyExtractor={(item, index) => item.id?.toString() || `clinica-${index}`}
-            contentContainerStyle={styles.listContainer}
-            ListEmptyComponent={renderEmptyComponent}
+            renderItem={({ item }) => (
+              <ClinicCard
+                clinic={item}
+                onSeeMore={setSelectedClinic}
+                onBookAppointment={handleMarcarConsulta}
+              />
+            )}
+            keyExtractor={(item) => item.id.toString()}
+            ListEmptyComponent={EmptyList}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
           />
         )}
 
-        <Portal>
-          <Modal
-            visible={modalVisible}
-            onDismiss={closeModal}
-            contentContainerStyle={styles.modalContainer}
-          >
-            {selectedClinic && (
-              <ScrollView>
-                <Image
-                  source={{
-                    uri: selectedClinic.logo_clinica
-                      ? `${API_BASE_URL}${selectedClinic.logo_clinica}`
-                      : 'https://via.placeholder.com/150/CCCCCC/FFFFFF?text=Logo',
-                  }}
-                  style={styles.modalImage}
-                />
-                <Title style={styles.modalTitle}>{selectedClinic.nome_clinica}</Title>
-                <Paragraph>
-                  <Text style={styles.bold}>Especialidade:</Text>{' '}
-                  {selectedClinic.especialidade_consulta || 'Não informada'}
-                </Paragraph>
-                <Paragraph>
-                  <Text style={styles.bold}>Telefone:</Text> {selectedClinic.telefone_clinica || 'Não informado'}
-                </Paragraph>
-                <Paragraph><Text style={styles.bold}>Email:</Text> {selectedClinic.email_clinica || 'Não informado'}</Paragraph>
-                <Paragraph><Text style={styles.bold}>CNPJ:</Text> {selectedClinic.cnpj_clinica || 'Não informado'}</Paragraph>
-                <Paragraph>
-                  <Text style={styles.bold}>Aceita Convênios:</Text>{' '}
-                  {typeof selectedClinic.aceita_convenios === 'boolean'
-                    ? selectedClinic.aceita_convenios ? 'Sim' : 'Não'
-                    : 'Não informado'}
-                </Paragraph>
-
-                <View style={{ marginTop: 20 }}>
-                  <Title style={{ fontSize: 18 }}>Endereços:</Title>
-                  {selectedClinic.enderecos && selectedClinic.enderecos.length > 0 ? (
-                    selectedClinic.enderecos.map((endereco) => (
-                      <View key={endereco.id} style={styles.addressBox}>
-                        <Text>
-                          {endereco.endereco_bairro}, Nº {endereco.endereco_numero_casa}
-                          {endereco.endereco_complemento ? `, ${endereco.endereco_complemento}` : ''}
-                        </Text>
-                        <Text>
-                          {endereco.endereco_uf}, CEP: {endereco.endereco_cep}
-                        </Text>
-                      </View>
-                    ))
-                  ) : (
-                    <Text>Sem endereços cadastrados.</Text>
-                  )}
-                </View>
-
-                <Button
-                  mode="contained"
-                  style={styles.closeButton}
-                  onPress={closeModal}
-                >
-                  Fechar
-                </Button>
-              </ScrollView>
-            )}
-          </Modal>
-        </Portal>
+        <ClinicDetailModal
+          clinic={selectedClinic}
+          visible={!!selectedClinic}
+          onClose={() => setSelectedClinic(null)}
+        />
       </View>
     </PaperProvider>
   );
 };
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
-    backgroundColor: '#f0f2f5',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    backgroundColor: palette.background,
   },
-  header: {
-    marginBottom: 16,
+  logo: {
+    width: 150,
+    height: 50,
+    resizeMode: 'contain',
+    alignSelf: 'center',
+    marginBottom: 20,
   },
   userGreeting: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 20,
     justifyContent: 'center',
-    padding: 8,
-    backgroundColor: '#e9ecef',
+    padding: 12,
+    backgroundColor: palette.lightGray,
     borderRadius: 8,
   },
   greetingText: {
     fontSize: 18,
-    marginLeft: 8,
-    color: '#333',
+    marginLeft: 10,
+    color: palette.textPrimary,
     fontWeight: '500',
   },
   loginPrompt: {
     fontSize: 16,
-    color: '#0056b3',
+    color: palette.primary,
     textAlign: 'center',
     textDecorationLine: 'underline',
   },
-  listContainer: {
-    paddingBottom: 20,
-  },
-  card: {
+  header: {
     marginBottom: 16,
-    elevation: 4,
-    borderRadius: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.lightGray,
+    paddingBottom: 16,
+  },
+  titleWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+    justifyContent: 'center',
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#2c3e50',
-    marginBottom: 10,
+    color: palette.textPrimary,
+  },
+  icon: {
+    width: 32,
+    height: 32,
   },
   cadastroButton: {
     borderRadius: 20,
+    alignSelf: 'center',
+  },
+  card: {
+    marginBottom: 16,
+    elevation: 3,
+    borderRadius: 12,
+    backgroundColor: palette.surface,
+  },
+  textItem: {
+    fontSize: 14,
+    marginTop: 4,
+    color: palette.textPrimary,
   },
   modalContainer: {
-    backgroundColor: 'white',
+    backgroundColor: palette.surface,
     padding: 20,
     margin: 20,
     borderRadius: 12,
     maxHeight: '85%',
   },
-  modalImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
+    color: palette.textPrimary,
   },
   closeButton: {
     marginTop: 20,
     borderRadius: 20,
   },
-  bold: {
-    fontWeight: 'bold',
-  },
-  addressBox: {
-    padding: 10,
-    backgroundColor: '#f8f9fa',
-    borderRadius: 5,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#e9ecef',
-  },
-  errorContainer: {
+  statusContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    marginTop: 50,
   },
   errorText: {
     fontSize: 16,
-    color: '#c0392b',
+    color: palette.error,
     textAlign: 'center',
     marginBottom: 20,
     marginTop: 10,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   emptyText: {
-    fontSize: 20,
-    color: '#555',
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 18,
+    color: palette.textSecondary,
+    marginTop: 8,
   },
 });
+
 
 export default HomeScreen;

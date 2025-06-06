@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { View, Alert, ScrollView, StyleSheet } from 'react-native';
 import { TextInput, Button, Text } from 'react-native-paper';
 import axios from 'axios';
-import { mask } from 'remask';
 
 export default function CadastroUsuarioScreen({ navigation }) {
   const [form, setForm] = useState({
@@ -16,14 +15,7 @@ export default function CadastroUsuarioScreen({ navigation }) {
   });
 
   const handleChange = (field, value) => {
-    let masked = value;
-    if (field === 'user_cpf') {
-      masked = mask(value, ['999.999.999-99']);
-    }
-    if (field === 'user_telefone') {
-      masked = mask(value, ['(99) 9999-9999', '(99) 9 9999-9999']);
-    }
-    setForm(prev => ({ ...prev, [field]: masked }));
+    setForm(prevForm => ({ ...prevForm, [field]: value }));
   };
 
   const handleSubmit = async () => {
@@ -39,8 +31,8 @@ export default function CadastroUsuarioScreen({ navigation }) {
       Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!');
       navigation.goBack();
     } catch (error) {
-      Alert.alert('Erro', 'Não foi possível cadastrar o usuário.');
-      console.error(error);
+      console.error('Erro ao cadastrar usuário:', error);
+      Alert.alert('Erro', 'Não foi possível cadastrar o usuário. Tente novamente.');
     }
   };
 
